@@ -6,7 +6,7 @@ async def call_runner_async(runner:Runner,user_id:str,session_id:str,user_input:
 
     try:
         async for event in runner.run_async(user_id=user_id,session_id=session_id,new_message=content):
-            # print(f"==> Event : {event.id} Author: {event.author}")
+            print(f"==> Event : {event.id} Author: {event.author}")
             if event.is_final_response():
                 if (
                 event.content

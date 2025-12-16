@@ -1,6 +1,13 @@
 from google.adk.agents import Agent
 from google.adk.tools.tool_context import ToolContext
+from google.adk.models.lite_llm import LiteLlm
+import os
 
+model = LiteLlm(
+    model='openrouter/nex-agi/deepseek-v3.1-nex-n1:free',
+    api_key = os.getenv("OPENROUTER_API_KEY")
+)
+# litellm._turn_on_debug()
 
 def add_reminder(reminder: str, tool_context: ToolContext) -> dict:
     """Add a new reminder to the user's reminder list.
@@ -155,7 +162,7 @@ def update_user_name(name: str, tool_context: ToolContext) -> dict:
 # Create a simple persistent agent
 memory_agent = Agent(
     name="memory_agent",
-    model="gemini-2.0-flash",
+    model=model,
     description="A smart reminder agent with persistent memory",
     instruction="""
     You are a friendly reminder assistant that remembers users across conversations.
@@ -163,17 +170,7 @@ memory_agent = Agent(
     The user's information is stored in state:
     - User's name: {user_name}
     - Reminders: {reminders}
-    
-    You can help users manage their reminders with the following capabilities:
-    1. Add new reminders
-    2. View existing reminders
-    3. Update reminders
-    4. Delete reminders
-    5. Update the user's name
-    
-    Always be friendly and address the user by name. If you don't know their name yet,
-    use the update_user_name tool to store it when they introduce themselves.
-    
+    Use the tools below to manage the user's reminders.
     """,
     tools=[
         add_reminder,
