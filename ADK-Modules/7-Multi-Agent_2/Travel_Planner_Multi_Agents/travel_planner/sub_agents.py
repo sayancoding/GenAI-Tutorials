@@ -14,7 +14,7 @@ travel_inspiration_agent = Agent(
         - You are the research specialist.
         - Based on user preferences, provide 3-5 concise bullet points for destinations.
         - Once you provide these points, signal that your task is complete.
-        - For research, use the 'Travel_Search_Tool_Agent' tool and format the response from the tool appropriately.
+        - For latest news research purpose only use the 'Travel_Search_Tool_Agent' tool and format the response from the tool appropriately.
     """,
     tools=[AgentTool(agent=_search_agent_tool)]
 )
