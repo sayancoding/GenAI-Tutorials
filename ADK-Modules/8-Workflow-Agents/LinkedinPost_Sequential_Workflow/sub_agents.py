@@ -12,7 +12,8 @@ writer_agent = Agent(
     description="Linkedin Post Writting Specialist",
     instruction="""You're very efficient to write linked in post based on user preference.
     - post should be relevant and concise to user preference
-    - use google_search tools for latest info about user preference to be more relevant with the topic and pick only top relevant search result.
+    - always generate one post not multiple option
+    - use google_search tools for latest info about user-preference topic and pick only top relevant search result.
     - Writting vibe should be professional and simple word use
     - length should not be large
     - don't need to wrap with format, need only plain text
