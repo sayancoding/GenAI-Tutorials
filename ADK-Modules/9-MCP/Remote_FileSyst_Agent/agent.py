@@ -6,10 +6,10 @@ from mcp import StdioServerParameters
 
 import os
 
-from .model import local_llm
+from .model import gemini_llm
 
-LLM = local_llm
-TARGET_FOLDER = os.path.join(os.path.dirname(__file__))
+LLM = gemini_llm
+TARGET_FOLDER = os.path.join(os.path.dirname(__file__),"resource","..")
 
 root_agent = Agent(
     name="FileSystem_Agent",
@@ -20,11 +20,13 @@ root_agent = Agent(
         MCPToolset(
             connection_params = StdioConnectionParams(
                 server_params= StdioServerParameters(
-                    command="npx",
+                    # As getting TimeOut error from execution
+                    # firstly --> npm install -g @modelcontextprotocol/server-filesystem
+                    # secondly --> use the pakage to start the server
+                    
+                    command="mcp-server-filesystem",
                     args=[
-                        "-y",
-                        "@modelcontextprotocol/server-filesystem",
-                        os.path.abspath(TARGET_FOLDER).replace("/", "\\")
+                        os.path.abspath(TARGET_FOLDER)
                     ]
                 )
             ),
