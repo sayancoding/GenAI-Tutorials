@@ -1,6 +1,8 @@
-# GenAI-Tutorials
+# GenAI Tutorials
 
-This repository provides a collection of tutorials and examples for Generative AI models.
+## Overview
+
+This repository contains a collection of tutorials and examples for Generative AI models. The tutorials are designed to be easy to follow and provide a practical introduction to the field of Generative AI.
 
 ## Structure
 
@@ -13,13 +15,6 @@ The repository is organized into the following directories:
 - **Google_ADK**: Tutorials related to Google's ADK.
 - **LangGraph**: Tutorials related to the LangGraph library.
 - **Project**: Example projects using Generative AI.
-
-## Basics - LLM-Basics
-
-The `Basics/LLM-Basics` directory contains an introductory example for using LLMs. It includes:
-
-- `app.py`: The main application file.
-- `requirement.txt`: A list of Python dependencies, including `google-ai-generativelanguage` and others related to web development and data handling.
 
 ## Installation
 
@@ -36,3 +31,7 @@ pip install -r requirement.txt
 ## Contributing
 
 Contributions are welcome! Please submit a pull request with your changes.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
