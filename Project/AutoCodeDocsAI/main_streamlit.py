@@ -1,21 +1,18 @@
 import streamlit as st
+import asyncio
+import os
+import time
+from dotenv import load_dotenv
 
-from app.doc_agent.agent import doc_agent
-from app.utils import build_repo_context
-from app.utils import clone_repo_to_local
-
+from app.doc_agent.agent import doc_agent  # Agent already has MCP wired in
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
+from mcp.shared.exceptions import McpError
 
-import asyncio
-import os
-from dotenv import load_dotenv
-
-#01 page configuration
 st.set_page_config(
-    page_title="AutoCodeDocsAI",
-    page_icon="📝",
+    page_title="AutoCodeDocsAI - With MCP",
+    page_icon="🤖",
     layout="wide"
 )
 load_dotenv()
@@ -24,94 +21,118 @@ APP_NAME = "AutoCodeDocsAI"
 SESSION_ID = "session_001"
 USER_ID = "dev_user"
 
-# 2. Asynchronous Logic Wrapper
+
 async def run_agentic_workflow(repo_url):
-    """Handles the cloning, context building, and ADK Runner execution."""
-    
-    # UI Step: Cloning & Context
-    with st.status("🛠️ Preparation Phase", expanded=True) as status:
-        st.write("Cloning repository...")
-        local_repo_path = clone_repo_to_local(repo_url)
-        
-        st.write("Extracting code context...")
-        context = build_repo_context(local_repo_path)
-        status.update(label="Context Ready!", state="complete")
+    # ✅ No manual MCP setup — it's handled inside the agent definition
+    session_service = InMemorySessionService()
+    session_service.create_session_sync(
+        session_id=SESSION_ID,
+        app_name=APP_NAME,
+        user_id=USER_ID
+    )
 
-        # create a session for the agent to maintain state
-        st.write("Creating session...")
-        session_service = InMemorySessionService()
-        session_service.create_session_sync(
-            session_id=SESSION_ID,
-            app_name=APP_NAME,
-            user_id=USER_ID
-        )
+    st.info(f"🤖 Agent is analyzing repository: {repo_url}")
 
-    # UI Step: Agent Reasoning
-    st.info("🤖 Agent is analyzing the codebase...")
-    
-    # session_service = InMemorySessionService()
     runner = Runner(
         agent=doc_agent,
         app_name=APP_NAME,
         session_service=session_service
     )
 
-    prompt = f"Please document this repository:\n{context}"
+    # Create a unique branch name based on the current timestamp
+    # This ensures "feature/auto-docs-1713354000" is always unique
+    timestamp = int(time.time())
+    unique_branch = f"feature/auto-docs-{timestamp}"
+
+    prompt = (
+        f"""Target Repository: {repo_url} 
+         Owner/Repo: {repo_url} 
+         Action: Analyis Repo & Create a professional README and submit a PR.
+         Use the branch name: '{unique_branch}' for this task.
+        
+        STRICT PROTOCOL:
+        1. Do not just describe your plan. 
+        2. You MUST execute the tools 'create_branch', 'create_or_update_file', and 'create_pull_request' in sequence.
+        3. Your task is only 'Complete' once you provide the URL of the submitted Pull Request.
+        4. If you have the README content and SHA, proceed immediately to 'create_branch'.
+        """
+    )
+
     user_message = types.Content(role="user", parts=[types.Part(text=prompt)])
-    
-    # We use a placeholder to stream the response live in Streamlit
+
+    # Create a dedicated area for the agent's thought process
+    thinking_container = st.container()
     response_placeholder = st.empty()
     full_response = ""
 
+    with st.status("🤖 Agent at work...", expanded=True) as status:
+        try: 
+            async for event in runner.run_async(
+                user_id=USER_ID,
+                session_id=SESSION_ID,
+                new_message=user_message
+            ):
+                # 1. Handle Working Phase (Tool Calls)
+                if event.get_function_calls():
+                    for call in event.get_function_calls():
+                        with thinking_container:
+                            with st.expander(f"Action: {call.name}", expanded=False):
+                                st.json(call.args)
 
-    # Running ADK Async Loop
-    async for event in runner.run_async(
-        user_id=USER_ID,
-        session_id=SESSION_ID,
-        new_message=user_message
-    ):
-        # In 2026, ADK supports partial streaming events
-        if event.partial:
-            for part in event.content.parts:
-                full_response += part.text
-                response_placeholder.markdown(full_response + "▌")
-        
-        if event.is_final_response():
-            full_response = event.content.parts[0].text
-            response_placeholder.markdown(full_response)
-            return full_response
+                # 2. Handle Thinking Phase (Text)
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        if hasattr(part, 'text') and part.text:
+                            full_response += part.text
+                            response_placeholder.markdown(full_response + "▌")
+
+                # 3. Check for completion
+                if event.is_final_response():
+                    status.update(label="✅ Agent task is Completed!", state="complete")
+                    if "SPull Request created" not in full_response.lower():
+                        st.warning("⚠️ The agent finished but didn't provide a PR link. It might have stopped early.")
+                    return full_response
+                pass
+        except McpError as e:
+            if "Reference already exists" in str(e):
+                st.warning("⚠️ Branch already exists! Please delete it on GitHub or change the branch name.")
+                return "Error: Branch Collision"
+            else:
+                st.error(f"GitHub MCP Error: {e}")
+                return None    
+    
+    # Final output
+    display_text = full_response.replace("\n", "\n\n") 
+    response_placeholder.markdown(display_text)
+    return full_response
 
 def main():
-    st.title("🚀 Agentic Auto-Documenter")
-    st.subheader("Turn any GitHub repo into professional documentation using Google ADK")
+    st.title("🚀 Agentic Auto-Documenter (MCP)")
+    st.subheader("Autonomous Documentation via Model Context Protocol")
 
     with st.sidebar:
-        st.header("Settings")
-        st.warning("⚠️ This app uses Gemini 2.0 Flash, which may have associated costs. Please ensure you have the appropriate API key and understand the pricing before using.")
-        api_key = st.text_input("Gemini API Key", type="password", value=os.getenv("GOOGLE_API_KEY", ""))
-        st.caption("Powered by Gemini 2.0 Flash & Google ADK")
+        st.header("System Status")
+        if os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN"):
+            st.success("GitHub Token: Loaded")
+        else:
+            st.error("GitHub Token: Missing")
+        st.caption("Using Gemini 2.0 Flash + GitHub MCP Server")
 
-    repo_url = st.text_input("Enter GitHub Repository URL:", placeholder="https://github.com/user/repo")
+    repo_url = st.text_input(
+        "Enter GitHub Repository URL:",
+        placeholder="e.g., https://github.com/sayancoding/MyProject"
+    )
 
-    if st.button("Generate Documentation"):
-        if not api_key:
-            st.error("Please enter your Gemini API Key in the sidebar.")
-            return
+    if st.button("Generate & PR Documentation"):
         if not repo_url:
             st.error("Please enter a valid GitHub repository URL.")
-            return
         else:
-            # Run the async workflow inside Streamlit
             readme_content = asyncio.run(run_agentic_workflow(repo_url))
-            
-            # Final Actions
-            st.success("✅ Documentation Generated!")
-            st.download_button(
-                label="Download README.md",
-                data=readme_content,
-                file_name="README.md",
-                mime="text/markdown"
-            )
+            st.success("✅ Workflow Complete!")
+            if readme_content:
+                st.markdown("### Agent Summary")
+                st.download_button("Download Draft README", readme_content, "README.md")
+
 
 if __name__ == "__main__":
     main()
